@@ -89,8 +89,10 @@ Upgrade to `7.2.3.2`, `8.0.5.1`, or `8.1.3.1`, matching your series, and confirm
 
 Interim mitigations, neither of which is a substitute for the upgrade:
 
-- Set the `VIPS_BLOCK_UNTRUSTED` environment variable (libvips `>= 8.13`)
-- Call `Vips.block_untrusted(true)` from an initializer (`ruby-vips >= 2.2.1`)
+- Set the `VIPS_BLOCK_UNTRUSTED` environment variable (libvips `>= 8.13`; no gem change needed)
+- Call `Vips.block_untrusted(true)` from an initializer (`ruby-vips >= 2.2.1`, plus libvips `>= 8.13`)
+
+On `ruby-vips < 2.2.1` the initializer route calls a method that does not exist yet, so raise the gem first or take the environment-variable route, which does not depend on it.
 
 If an application was exposed, treat every secret readable by the application process as compromised and rotate it: `secret_key_base`, the master key, Active Storage service credentials, database credentials, and third-party tokens.
 

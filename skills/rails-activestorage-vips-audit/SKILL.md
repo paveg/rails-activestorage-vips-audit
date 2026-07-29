@@ -39,6 +39,8 @@ A repository is exposed only when **all four** conditions hold:
 
 **Condition 3 is the discriminating one, not condition 1.** The affected range `< 7.2.3.2` sweeps in every Rails 6.x release, but 6.x defaults to `:mini_magick` and is exposed only under a non-default configuration. A version-only check produces false positives across every 6.x repository, and is the most common way this audit goes wrong.
 
+The report is conversational output. Do not write it into the audited repository, and do not file it in a notes directory on your own initiative, whatever a general working convention says: an audit that lands as a file in a repository is a record of that repository's weaknesses sitting inside it. Write it to a file only when the operator asks for one, and then only where they say.
+
 ## Step 1: Gather evidence
 
 Run `scripts/collect-evidence.sh <repo>...`. It collects facts only and contains no verdict logic, so read its output and decide using the steps below.
@@ -85,6 +87,8 @@ Rails applies configuration in load order — `config/application.rb`, then `con
 
 `ruby-vips` or `image_processing` in `Gemfile.lock` is supporting evidence that libvips is reachable, but does not by itself set the processor. A resolved value of `:mini_magick` means the application is not exposed through this path.
 
+**`mini_magick` in `Gemfile.lock` does not mean the processor is `:mini_magick`.** It typically arrives as a transitive dependency of `image_processing`, so finding it beside `ruby-vips` is the ordinary state of a `:vips` application, not a contradiction. Only the precedence above resolves the processor. The evidence script prints both gems, which is exactly why this misreading is available — it is the mirror image of declaring 6.x exposed on the version range alone, and just as easy to make.
+
 A missing `config/environments/` directory, or one with no `variant_processor` line, means there is no per-environment override. That is a normal outcome, not a gap: report the single resolved value and name the rule that produced it.
 
 ## Step 5: Assess upload exposure
@@ -96,7 +100,9 @@ Check both routes into Active Storage, because they have different shapes:
 
 Upload exposure is **confirmed** when the repository contains an entry point: a permitted parameter naming an attribute declared with `has_one_attached` or `has_many_attached`, a `file_field`, a direct-upload route, or a `permit!` call on parameters reaching a model that declares an attachment. It is **unconfirmed** when Active Storage is configured and in use but no entry point appears in this checkout — attachments may be created by another service, a background job, or code outside the repository. Unconfirmed maps to LIKELY EXPOSED. It never maps to NOT AFFECTED, because absent code is not absent behaviour.
 
-Drive this from the attachment names, never from a keyword list. The evidence script derives the names from the `has_one_attached` and `has_many_attached` declarations and searches each one across the repository, so an attachment called `:resume` or `:logo` surfaces even though no fixed keyword list would contain it. The search matches both Ruby spellings of a parameter — the symbol form (`permit(:avatar)`) and the hash-label form (`permit(photos: [])`, the standard shape for `has_many_attached`) — so a Rails 8 `params.expect` list is matched as readily as a `permit` call. Where the script finds no declarations, it falls back to dumping every strong-parameter call; read those against Step 3.
+Drive this from the attachment names, never from a keyword list. The evidence script derives the names from the `has_one_attached` and `has_many_attached` declarations and searches each one across the repository, so an attachment called `:resume` or `:logo` surfaces even though no fixed keyword list would contain it. The search matches both Ruby spellings of a parameter — the symbol form (`permit(:avatar)`) and the hash-label form (`permit(photos: [])`, the standard shape for `has_many_attached`) — so a Rails 8 `params.expect` list is matched as readily as a `permit` call. Where the script finds no declarations, it falls back to strong-parameter calls, capped and with the total printed; read those against Step 3.
+
+**Read each match before counting it.** A generic attachment name matches text that has nothing to do with parameters — an attachment called `:file` also hits `render file:`, and `:image` hits view helpers. Confirm the line is a `permit`, `permit!`, or `params.expect` call, and that the attribute it names is the attachment, before treating it as an upload entry point. The cost of the derived-name search is this noise; the alternative, a fixed keyword list, silently misses `:resume` and `:logo` entirely, which is the worse failure.
 
 `permit!` is reported separately because it names no attributes, so a search by attachment name cannot see it. Treat it as the strongest evidence available, not the weakest: it permits every attribute including the attachment. An application whose only controller evidence is `permit!` is confirmed exposed, even though its attachment name appears nowhere outside the model.
 
@@ -114,8 +120,14 @@ The advisory frames the precondition as uploads from *untrusted* users, but sour
 | `VIPS_BLOCK_UNTRUSTED` in a Dockerfile, compose file, k8s manifest, `.env`, or `Procfile`  | The variable is set somewhere in the repo | Unverified: inert unless runtime libvips is `>= 8.13`, and the deployed environment may differ from the repo |
 | `ruby-vips` present but used only for analysis                                              | Nothing about variant processing        | No mitigation                                                                                             |
 | A WAF rule                                                                                  | Nothing statically verifiable           | No mitigation                                                                                             |
+| Upload content-type or MIME validation (`activestorage-validator`, a custom validator)      | Nothing about the file's contents       | No mitigation                                                                                             |
+| No mitigation code at all, with `ruby-vips < 2.2.1`                                        | The initializer route is unavailable    | No mitigation, and the remediation must say which route remains — see below                              |
 
 `Vips.block_untrusted(true)` with `ruby-vips < 2.2.1` calls a method that does not exist in that version. Flag it as a broken mitigation, not an effective one.
+
+**When no mitigation is present and `ruby-vips < 2.2.1`, the mitigation is not broken, it is not yet reachable by that route.** This is the most common state, since an unremediated repository has no mitigation by definition. Do not recommend `Vips.block_untrusted(true)` as though it would work. Two routes remain, and they have different preconditions: `VIPS_BLOCK_UNTRUSTED` as an environment variable needs only runtime libvips `>= 8.13` and no gem change at all, while the initializer route needs `ruby-vips >= 2.2.1` first. Name the prerequisite as its own step rather than folding it into the mitigation, or the operator follows a procedure that cannot run.
+
+Content-type validation earns a row for the same reason the WAF does, and it misleads harder: the file really is an image by every header the application checks. The unsafe operations are reached through the contents of a well-formed image, so a validator that only proves the declared type proves nothing about this.
 
 ## Step 7: Emit the report
 
@@ -135,9 +147,13 @@ The reason is that the fix depends on libvips `>= 8.13`: below that version libv
 
 **Never attach the caveat to EXPOSED.** An old libvips does not make an exposed application conditionally exposed, it makes it worse. "EXPOSED, conditional on runtime libvips" reads as though a new enough libvips were the danger, which inverts the finding.
 
+**Put that evidence in the remediation instead.** On an EXPOSED repository, evidence pointing at libvips below 8.13 — a `vips` or `ruby-vips` constraint capped below it, a base image whose distribution ships an older libvips — belongs under remediation, where it raises urgency and tells the operator the gem upgrade alone will not finish the job. It is a reason to move faster, never a condition on the verdict. A prohibition with no destination gets broken, because the evidence is real and has to go somewhere.
+
 **Name the line a clean verdict rests on.** When condition 1 holds and the verdict is NOT AFFECTED only because the processor resolved to `:mini_magick`, say that plainly: the application runs an affected `activestorage`, and a single configuration line is all that keeps the vulnerable path out of reach. Cite that line, and state that changing it — or adding a per-environment override, or a `load_defaults` bump during a Rails upgrade — flips the verdict with no dependency changing at all. A verdict that omits this reads as durable when it is one edit deep.
 
 **Report what you saw outside the CVE's scope, outside the verdict.** Section 9 of the evidence collects code reaching libvips without going through Active Storage, such as `Vips::Image` or `ImageProcessing::Vips` in a job processing images the application fetched itself. That code does not satisfy condition 3 and must never move the verdict. Record it below the verdict as a separate observation, naming the file and what feeds it. A reader who sees NOT AFFECTED and no mention of libvips concludes that libvips is irrelevant to the application, which is a different claim and, where such a job exists, a false one.
+
+If you happened to notice that variants are generated eagerly — an `after_create` hook or a job that processes every upload on arrival, rather than a variant built when someone views it — record it as a severity note, because the vulnerable path then runs on every upload with no viewer involved. **This is not an input to condition 3, and its absence proves nothing.** Do not go looking for variant calls to decide exposure, and never let a repository with no such hook read as less likely to be exposed. Step 3 stands: variant generation is not a prerequisite.
 
 State every condition you could not verify. An audit that hides its gaps is worse than one that reports them.
 
@@ -183,5 +199,9 @@ Two rules that hold regardless of what the procedure says:
 | Running `fix` without a `report` verdict                            | The remediation path depends on the verdict and the Rails series       |
 | Omitting secret rotation from an EXPOSED report                     | Arbitrary file read means every readable secret is exposed             |
 | Letting a clean verdict stand without naming the line it depends on | Condition 1 still holds; the verdict is one configuration edit deep    |
+| Recommending `Vips.block_untrusted(true)` when `ruby-vips < 2.2.1`  | Not broken, not yet reachable; upgrade the gem first, or use the environment variable, which needs no gem change |
+| Reading `mini_magick` in the lockfile as the resolved processor     | It arrives transitively with `image_processing`; only Step 4 resolves the processor |
+| Counting content-type validation as a mitigation                    | The payload is a well-formed image; the declared type proves nothing   |
+| Dropping libvips-below-8.13 evidence because it cannot touch an EXPOSED verdict | It belongs in the remediation, where it raises urgency     |
 | Dropping direct `Vips::Image` calls because they are out of CVE scope | Report them as an observation; silence reads as "libvips is irrelevant here" |
 | Writing or running a proof of concept                               | Out of scope; this skill audits and remediates configuration only      |

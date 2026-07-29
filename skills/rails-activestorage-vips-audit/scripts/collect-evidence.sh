@@ -211,6 +211,13 @@ scan_one() {
   printf 'operations, and upgrading activestorage does not necessarily cover it.\n'
   printf 'Report these alongside the verdict, never inside it.\n'
   report_capped 15 'direct libvips calls' grep_direct_vips
+
+  section "10. Remediation targets (NOT verdict inputs)"
+  printf 'Constraints from Gemfile, not resolved versions. Section 1 remains the only\n'
+  printf 'input to the version condition; these lines are what a fix edits, and a\n'
+  printf 'constraint that pins below the patched release is why bundle update fails.\n'
+  report_capped 15 'gem constraint lines in Gemfile' \
+    grep_repo 'Gemfile' "^[[:space:]]*gem [\"'](rails|activestorage|ruby-vips|image_processing|mini_magick)[\"']"
 }
 
 [ "$#" -eq 0 ] && set -- .

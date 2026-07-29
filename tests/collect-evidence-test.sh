@@ -29,6 +29,12 @@ mkdir -p "$app/app/models" "$app/app/controllers" "$app/app/javascript" \
   "$app/app/views" "$app/config" \
   "$app/sub/node_modules/dep" "$app/engines/x/vendor/bundle/gems/dep"
 
+cat > "$app/Gemfile" <<'EOF'
+source "https://rubygems.org"
+gem "rails", "~> 7.0.8"
+gem "image_processing", "~> 1.12"
+EOF
+
 cat > "$app/Gemfile.lock" <<'EOF'
 GEM
   specs:
@@ -112,6 +118,11 @@ assert_contains 'none found: Gemfile.lock' "$out"
 # dropping it from the evidence lets a reader conclude libvips is irrelevant.
 assert_contains 'Vips::Image.new_from_file' "$out"
 assert_contains 'ImageProcessing::Vips.source' "$out"
+
+# The Gemfile constraint is what remediation edits, and is never a verdict
+# input; it has to be visible without being mistaken for a resolved version.
+assert_contains 'Remediation targets (NOT verdict inputs)' "$out"
+assert_contains 'gem "rails", "~> 7.0.8"' "$out"
 
 # The no-declarations fallback stays readable: capped, with the total stated.
 assert_contains 'field_01' "$out"

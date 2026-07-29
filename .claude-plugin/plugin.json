@@ -1,7 +1,7 @@
 {
   "name": "rails-activestorage-vips-audit",
   "description": "Audit Ruby on Rails repositories for CVE-2026-66066 (KindaRails2Shell), the Active Storage libvips variant-processing arbitrary file read / RCE: per-repository exposure verdicts and branch-based remediation.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": {
     "name": "paveg",
     "url": "https://github.com/paveg"

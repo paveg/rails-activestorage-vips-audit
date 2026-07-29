@@ -44,7 +44,16 @@ No patch exists for these series. `7.2.3.2` is a framework upgrade spanning seve
 
 ## The interim mitigation
 
-Preconditions: `ruby-vips >= 2.2.1` in `Gemfile.lock` **and** runtime libvips `>= 8.13`. Below either, the mitigation is inert — applying it anyway creates a false sense of safety, which is worse than no mitigation.
+The two routes do not share preconditions, and choosing between them is the first decision here.
+
+| Route                            | Needs                                       | When it fits                                                        |
+| :------------------------------- | :------------------------------------------ | :------------------------------------------------------------------ |
+| `VIPS_BLOCK_UNTRUSTED` variable  | runtime libvips `>= 8.13` only              | No gem change is possible or wanted; the deployment can set variables |
+| `Vips.block_untrusted(true)`     | `ruby-vips >= 2.2.1` and libvips `>= 8.13`  | The application can ship a gem bump and an initializer               |
+
+With `ruby-vips < 2.2.1` the initializer route is not broken, it is not yet reachable: the method does not exist in that version. Do not write the initializer and hope. Either raise `ruby-vips` to `>= 2.2.1` first, as its own step with its own verification, or take the environment-variable route, which needs no gem change at all. `ruby-vips` is a standalone gem, so raising it is usually a small update and not the framework upgrade that Path B describes.
+
+Preconditions for the initializer below: `ruby-vips >= 2.2.1` in `Gemfile.lock` **and** runtime libvips `>= 8.13`. Below either, the mitigation is inert — applying it anyway creates a false sense of safety, which is worse than no mitigation.
 
 ```ruby
 # config/initializers/vips_block_untrusted.rb
