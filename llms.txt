@@ -1,0 +1,17 @@
+# rails-activestorage-vips-audit
+
+> An Agent Skill that audits Ruby on Rails repositories for exposure to CVE-2026-66066 (KindaRails2Shell), the Active Storage libvips variant-processing vulnerability (arbitrary file read, escalating to RCE in a Rails application). It is a configuration auditor and remediation aid only: it contains no exploit code and does not describe the attack chain.
+
+The skill has two modes, both accepting multiple repository paths: `report` (read-only audit producing one verdict per repository) and `fix` (applies remediation on a branch, never commits or pushes unprompted, and requires a prior `report` verdict). A repository is exposed only when all four conditions hold: an affected `activestorage` version, Active Storage in use, `config.active_storage.variant_processor` resolving to `:vips`, and file uploads accepted. The runtime libvips version cannot be determined from a repository; only `vips --version` where the application runs can settle it (`>= 8.13` is required for the fix to take effect).
+
+## Docs
+
+- [README](README.md): vulnerability summary, installation, usage, remediation summary, disclaimer
+- [SKILL.md](skills/rails-activestorage-vips-audit/SKILL.md): the audit decision procedure — verdict rule, evidence steps, mitigation caps, report format, common mistakes
+- [fix-procedure.md](skills/rails-activestorage-vips-audit/references/fix-procedure.md): remediation paths per Rails series, the interim mitigation and its preconditions, runtime libvips verification, secret rotation checklist
+- [collect-evidence.sh](skills/rails-activestorage-vips-audit/scripts/collect-evidence.sh): fact-gathering shell script that deliberately contains no verdict logic
+
+## Notes
+
+- Verdicts are best-effort static analysis, not proof of non-exposure; a clean verdict on an application using `:vips` is always conditional on the runtime libvips version
+- Use only on repositories you own or are authorized to audit
