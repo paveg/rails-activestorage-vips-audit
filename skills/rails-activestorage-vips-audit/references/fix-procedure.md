@@ -2,6 +2,8 @@
 
 Remediation procedure for a repository that `report` mode has already judged. Read this in full before editing anything.
 
+Unlike `report`, which only reads, `fix` executes code from the repository it is pointed at: `bundle update` evaluates the `Gemfile` as Ruby and may build native gem extensions. Run it only against a repository you own or are authorized to remediate. `report` is the mode that is safe to point at code you do not trust.
+
 ## Preconditions
 
 Refuse to proceed and explain why when any of these hold:
