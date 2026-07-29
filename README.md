@@ -28,6 +28,21 @@ Condition 3 is the discriminating one. The affected range `< 7.2.3.2` includes e
 
 ## Installation
 
+As a Claude Code plugin, through the marketplace bundled in this repository:
+
+```
+/plugin marketplace add paveg/rails-activestorage-vips-audit
+/plugin install rails-activestorage-vips-audit@paveg-skills
+```
+
+With the [skills CLI](https://github.com/vercel-labs/skills), which installs the same skill into Claude Code, Codex, Cursor, Copilot CLI, and other agents:
+
+```sh
+npx skills add paveg/rails-activestorage-vips-audit
+```
+
+Or manually:
+
 ```sh
 git clone https://github.com/paveg/rails-activestorage-vips-audit.git
 cp -r rails-activestorage-vips-audit/skills/rails-activestorage-vips-audit ~/.claude/skills/

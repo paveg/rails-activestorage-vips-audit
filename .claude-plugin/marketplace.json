@@ -1,0 +1,17 @@
+{
+  "name": "paveg-skills",
+  "metadata": {
+    "description": "paveg's Claude Code plugins: security auditing skills for Ruby on Rails applications."
+  },
+  "owner": {
+    "name": "paveg",
+    "url": "https://github.com/paveg"
+  },
+  "plugins": [
+    {
+      "name": "rails-activestorage-vips-audit",
+      "source": "./",
+      "description": "Audit Ruby on Rails repositories for CVE-2026-66066 (KindaRails2Shell), the Active Storage libvips variant-processing arbitrary file read / RCE: per-repository exposure verdicts and branch-based remediation."
+    }
+  ]
+}
