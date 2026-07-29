@@ -68,6 +68,14 @@ printf 'source "https://rubygems.org"\n' > "$work/nolock/Gemfile"
 
 # libvips reached without Active Storage: out of CVE scope, but the same
 # operations, so the evidence must surface it rather than drop it.
+mkdir -p "$app/config/initializers"
+cat > "$app/config/initializers/vips_block_untrusted.rb" <<'EOF'
+require "vips"
+if Vips.respond_to?(:block_untrusted)
+  Vips.block_untrusted(true)
+end
+EOF
+
 mkdir -p "$app/app/jobs"
 cat > "$app/app/jobs/thumbnail_job.rb" <<'EOF'
 class ThumbnailJob < ApplicationJob
@@ -127,7 +135,14 @@ assert_contains 'gem "rails", "~> 7.0.8"' "$out"
 # The no-declarations fallback stays readable: capped, with the total stated.
 assert_contains 'field_01' "$out"
 assert_contains 'showing 15 of 30' "$out"
+assert_not_contains 'field_16' "$out"
 assert_not_contains 'field_30' "$out"
+
+# Section 9 is about libvips reached outside Active Storage. The mitigation
+# initializer this skill itself tells fix mode to write is not that, and
+# reporting it there would have the auditor flag their own remediation.
+section9=$(printf '%s\n' "$out" | sed -n '/9\. libvips reached outside/,/^===== 10/p')
+assert_not_contains 'block_untrusted' "$section9"
 
 if sh "$subject" "$work/does-not-exist" >/dev/null 2>&1; then
   printf 'FAIL: nonexistent path should exit non-zero\n'

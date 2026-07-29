@@ -21,6 +21,8 @@ Create a branch per repository before the first edit, for example `security/cve-
 
 Target the matching patched version: `7.2.3.2` for 7.2.x, `8.0.5.1` for 8.0.x, `8.1.3.1` for 8.1.x.
 
+**Check the runtime minimums before the gem bump, not after.** Where `ruby-vips` is installed, the patched `activestorage` raises during boot unless libvips is `>= 8.13` and `ruby-vips` is `>= 2.2.1`; it refuses to run in an environment it cannot secure. Shipping the upgrade without confirming both produces a failed deploy, and this check applies even to `:mini_magick` applications, which merely have `ruby-vips` in the bundle. So: confirm `vips --version` in the running environment, raise `ruby-vips` in the same change when the lockfile is below 2.2.1, and only then bump the framework gem.
+
 1. If `Gemfile` pins the version (`gem "rails", "8.0.4"`), relax or raise the pin to the target. If it uses a pessimistic constraint that already admits the target, leave it alone.
 2. Resolve through Bundler rather than hand-editing the lockfile:
 
@@ -75,7 +77,7 @@ Raising at boot is deliberate. A mitigation that silently does nothing is the fa
 
 ## Runtime libvips verification
 
-This cannot be resolved from the repository, and it is not optional: **below libvips 8.13 the unsafe operations cannot be disabled at all**, so the `activestorage` upgrade alone does not close the hole.
+This cannot be resolved from the repository, and it is not optional. Below libvips 8.13 the unsafe operations cannot be disabled at all, which has two distinct consequences: on an **unpatched** application no mitigation can work, and on a **patched** one Active Storage raises during boot rather than running unsecured. The upgrade therefore fails loudly instead of silently leaving a hole, and the work is to confirm the minimum before shipping rather than to discover it in a deploy.
 
 Ask the operator to run this where the application actually runs:
 

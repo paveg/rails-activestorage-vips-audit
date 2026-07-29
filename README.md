@@ -80,12 +80,12 @@ The script gathers facts and deliberately contains no verdict logic.
 
 ## What it will not tell you
 
-- **The runtime libvips version.** It is not knowable from a repository, and it matters: below libvips 8.13 the unsafe operations cannot be disabled at all, so upgrading `activestorage` alone leaves the application exposed. Verify with `vips --version` where the application runs. Because of this, a clean verdict on an application that uses `:vips` is always reported as conditional rather than as safe.
+- **The runtime libvips version.** It is not knowable from a repository, and it matters: below libvips 8.13 the unsafe operations cannot be disabled at all. On an unpatched application that means no mitigation can work; on a patched one it means Active Storage raises during boot rather than running unsecured, so an unchecked upgrade fails the deploy instead of leaving a silent hole. Verify with `vips --version` where the application runs. Because of this, a clean verdict on an application that uses `:vips` is always reported as conditional rather than as safe.
 - **Whether a mitigation is live.** `VIPS_BLOCK_UNTRUSTED` in a Dockerfile does not prove the deployed environment sets it. The skill caps such findings at "interim mitigation present, upgrade still required" and never lets one produce a clean verdict.
 
 ## Remediation summary
 
-Upgrade to `7.2.3.2`, `8.0.5.1`, or `8.1.3.1`, matching your series, and confirm runtime libvips is `>= 8.13`.
+Upgrade to `7.2.3.2`, `8.0.5.1`, or `8.1.3.1`, matching your series. Confirm runtime libvips `>= 8.13` and `ruby-vips >= 2.2.1` **first**: where `ruby-vips` is installed, the patched Active Storage raises during boot unless both hold, and that check applies to `:mini_magick` applications too.
 
 Interim mitigations, neither of which is a substitute for the upgrade:
 

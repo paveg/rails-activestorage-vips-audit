@@ -37,11 +37,14 @@ pruned_find() {
 # Files that reach libvips without going through Active Storage. This decides
 # nothing about the CVE, and is collected because a reader who sees no libvips
 # evidence at all concludes libvips is irrelevant to the application.
+# The pattern deliberately excludes bare `Vips.<method>`: it would match
+# Vips.block_untrusted, the mitigation this skill tells fix mode to write, and
+# report the operator's own remediation as an out-of-scope exposure.
 # shellcheck disable=SC2329,SC2317  # invoked indirectly, through report_capped "$@"
 grep_direct_vips() {
   grep -rInE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
     --include='*.rb' --include='*.rake' \
-    'Vips::Image|ImageProcessing::Vips|Vips\.[a-z_]+' .
+    'Vips::Image|ImageProcessing::Vips' .
 }
 
 # Like report(), but truncated: a section that can match hundreds of unrelated
@@ -207,9 +210,11 @@ scan_one() {
 
   section "9. libvips reached outside Active Storage (context only, never the verdict)"
   printf 'CVE-2026-66066 concerns Active Storage variant processing. Code handing\n'
-  printf 'input straight to libvips is a separate exposure sharing the same unsafe\n'
-  printf 'operations, and upgrading activestorage does not necessarily cover it.\n'
-  printf 'Report these alongside the verdict, never inside it.\n'
+  printf 'input straight to libvips reaches the same unsafe operations without\n'
+  printf 'touching Active Storage, so it can be exposed even where the processor\n'
+  printf 'resolves to :mini_magick and the verdict is NOT AFFECTED. The patched\n'
+  printf 'activestorage blocks those operations process-wide, which is why the\n'
+  printf 'upgrade still matters here. Report alongside the verdict, never inside it.\n'
   report_capped 15 'direct libvips calls' grep_direct_vips
 
   section "10. Remediation targets (NOT verdict inputs)"
