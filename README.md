@@ -59,6 +59,15 @@ report <repo>...   # read-only audit, one verdict per repository
 fix <repo>...      # applies remediation on a branch; never commits or pushes unprompted
 ```
 
+Installed as a plugin, each mode is also a command, so the mode does not have to be typed as an argument:
+
+```
+/rails-activestorage-vips-audit:report path/to/app another/app
+/rails-activestorage-vips-audit:fix path/to/app
+```
+
+The commands are entry points for you, not for the agent: they are marked so that Claude never fires them on its own. Claude still invokes the skill itself when a request matches it, which is why `fix` cannot start without a human asking for it.
+
 `report` is the default. `fix` requires a `report` verdict for the same repository first, because the correct remediation depends on it — Rails 6.x, 7.0.x, and 7.1.x have no same-series patch, so there `fix` applies the interim mitigation and reports that a framework upgrade is required rather than attempting one.
 
 Evidence collection can also be run on its own:
