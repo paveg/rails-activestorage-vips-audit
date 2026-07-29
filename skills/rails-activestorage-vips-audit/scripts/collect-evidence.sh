@@ -42,7 +42,7 @@ grep_repo() {
 
 # ERB, Haml, and Slim all render the same form helpers; searching only ERB
 # misses Haml and Slim applications entirely.
-# shellcheck disable=SC2329  # invoked indirectly, through report "$@"
+# shellcheck disable=SC2329,SC2317  # invoked indirectly, through report "$@"
 grep_templates() {
   for tglob in '*.erb' '*.haml' '*.slim'; do
     grep_repo "$tglob" "$1"
