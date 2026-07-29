@@ -34,6 +34,36 @@ pruned_find() {
   find . \( -path '*/node_modules' -o -path '*/vendor/bundle' -o -path '*/.git' -o -path '*/tmp' \) -prune -o "$@" 2>/dev/null
 }
 
+# Files that reach libvips without going through Active Storage. This decides
+# nothing about the CVE, and is collected because a reader who sees no libvips
+# evidence at all concludes libvips is irrelevant to the application.
+# shellcheck disable=SC2329,SC2317  # invoked indirectly, through report_capped "$@"
+grep_direct_vips() {
+  grep -rInE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
+    --include='*.rb' --include='*.rake' \
+    'Vips::Image|ImageProcessing::Vips|Vips\.[a-z_]+' .
+}
+
+# Like report(), but truncated: a section that can match hundreds of unrelated
+# lines buries the few that decide anything. The total is printed so the reader
+# knows the list was cut rather than exhausted.
+report_capped() {
+  limit=$1
+  label=$2
+  shift 2
+  out=$("$@" 2>/dev/null)
+  if [ -z "$out" ]; then
+    printf '(none found: %s)\n' "$label"
+    return
+  fi
+  total=$(printf '%s\n' "$out" | wc -l | tr -d ' ')
+  printf '%s\n' "$out" | head -n "$limit"
+  if [ "$total" -gt "$limit" ]; then
+    printf '(showing %s of %s matches; open the repository if this section decides the verdict)\n' \
+      "$limit" "$total"
+  fi
+}
+
 grep_repo() {
   pruned_find -type f -name "$1" -print | while IFS= read -r f; do
     grep -nE "$2" "$f" 2>/dev/null | sed "s|^|$f:|"
@@ -150,8 +180,10 @@ scan_one() {
     done
   else
     printf 'No has_one_attached / has_many_attached symbol-literal declarations found;\n'
-    printf 'falling back to every strong-parameter call, read against section 2.\n'
-    report 'strong parameters and params.expect' grep_repo '*.rb' '\.permit[(! ]|params\.expect[( ]'
+    printf 'falling back to strong-parameter calls, read against section 2. None of\n'
+    printf 'these decide anything on their own, so the list is capped.\n'
+    report_capped 15 'strong parameters and params.expect' \
+      grep_repo '*.rb' '\.permit[(! ]|params\.expect[( ]'
   fi
 
   section "8. Authentication hints (affects severity, not the verdict)"
@@ -172,6 +204,13 @@ scan_one() {
         grep -nE '^ +(devise|pundit|cancancan|rodauth|warden|clearance|omniauth) \(' "$lock"
     done
   fi
+
+  section "9. libvips reached outside Active Storage (context only, never the verdict)"
+  printf 'CVE-2026-66066 concerns Active Storage variant processing. Code handing\n'
+  printf 'input straight to libvips is a separate exposure sharing the same unsafe\n'
+  printf 'operations, and upgrading activestorage does not necessarily cover it.\n'
+  printf 'Report these alongside the verdict, never inside it.\n'
+  report_capped 15 'direct libvips calls' grep_direct_vips
 }
 
 [ "$#" -eq 0 ] && set -- .

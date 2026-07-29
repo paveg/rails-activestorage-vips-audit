@@ -135,6 +135,10 @@ The reason is that the fix depends on libvips `>= 8.13`: below that version libv
 
 **Never attach the caveat to EXPOSED.** An old libvips does not make an exposed application conditionally exposed, it makes it worse. "EXPOSED, conditional on runtime libvips" reads as though a new enough libvips were the danger, which inverts the finding.
 
+**Name the line a clean verdict rests on.** When condition 1 holds and the verdict is NOT AFFECTED only because the processor resolved to `:mini_magick`, say that plainly: the application runs an affected `activestorage`, and a single configuration line is all that keeps the vulnerable path out of reach. Cite that line, and state that changing it — or adding a per-environment override, or a `load_defaults` bump during a Rails upgrade — flips the verdict with no dependency changing at all. A verdict that omits this reads as durable when it is one edit deep.
+
+**Report what you saw outside the CVE's scope, outside the verdict.** Section 9 of the evidence collects code reaching libvips without going through Active Storage, such as `Vips::Image` or `ImageProcessing::Vips` in a job processing images the application fetched itself. That code does not satisfy condition 3 and must never move the verdict. Record it below the verdict as a separate observation, naming the file and what feeds it. A reader who sees NOT AFFECTED and no mention of libvips concludes that libvips is irrelevant to the application, which is a different claim and, where such a job exists, a false one.
+
 State every condition you could not verify. An audit that hides its gaps is worse than one that reports them.
 
 For multiple repositories, lead with a summary table of `repository | verdict | activestorage version | resolved processor`, then the per-repository detail. Order it by severity so the exposed ones are read first.
@@ -178,4 +182,6 @@ Two rules that hold regardless of what the procedure says:
 | Downgrading to NOT AFFECTED when no upload entry point is in the repo | Attachments may be created outside this checkout; that is LIKELY EXPOSED |
 | Running `fix` without a `report` verdict                            | The remediation path depends on the verdict and the Rails series       |
 | Omitting secret rotation from an EXPOSED report                     | Arbitrary file read means every readable secret is exposed             |
+| Letting a clean verdict stand without naming the line it depends on | Condition 1 still holds; the verdict is one configuration edit deep    |
+| Dropping direct `Vips::Image` calls because they are out of CVE scope | Report them as an observation; silence reads as "libvips is irrelevant here" |
 | Writing or running a proof of concept                               | Out of scope; this skill audits and remediates configuration only      |
