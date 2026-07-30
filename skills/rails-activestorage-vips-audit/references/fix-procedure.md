@@ -1,6 +1,6 @@
 # `fix` mode procedure — CVE-2026-66066
 
-Remediation procedure for a repository that `report` mode has already judged. Read this in full before editing anything.
+Remediation procedure for an application that `report` mode has already judged. Read this in full before editing anything.
 
 Unlike `report`, which only reads, `fix` executes code from the repository it is pointed at: `bundle update` evaluates the `Gemfile` as Ruby and may build native gem extensions. Run it only against a repository you own or are authorized to remediate. `report` is the mode that is safe to point at code you do not trust.
 
@@ -10,12 +10,12 @@ Refuse to proceed and explain why when any of these hold:
 
 | Condition                                 | Why `fix` must stop                                                                 |
 | :---------------------------------------- | :---------------------------------------------------------------------------------- |
-| No `report` verdict for this repository   | The correct path depends on the verdict and the Rails series. Run `report` first.   |
+| No `report` verdict for this application  | The correct path depends on the verdict and the Rails series. Run `report` first.   |
 | Verdict is NOT AFFECTED                   | There is nothing to fix; changing dependencies adds risk for no benefit.            |
 | Verdict is INSUFFICIENT EVIDENCE          | Resolve the unknowns first. Do not guess a remediation.                             |
 | Working tree is dirty                     | Remediation changes must be reviewable in isolation.                                |
 
-Create a branch per repository before the first edit, for example `security/cve-2026-66066`. Work only inside the repository you were given; never edit a sibling checkout because it looked related.
+Resolve every application path with `git rev-parse --show-toplevel` before editing. Create one branch per Git repository before the first edit, for example `security/cve-2026-66066`. When multiple application roots share that repository, remediate them serially in the same working tree; concurrent branch switches, dependency updates, or index changes would race. Separate repositories may be handled in parallel. Work only inside the repository you were given; never edit a sibling checkout because it looked related.
 
 ## Path A: the series has a patch release (7.2.x, 8.0.x, 8.1.x)
 
