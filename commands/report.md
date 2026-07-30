@@ -1,6 +1,6 @@
 ---
-description: Audit Rails repositories for CVE-2026-66066 (Active Storage / libvips) exposure. Read-only.
-argument-hint: "[repo-path...]"
+description: Audit Rails applications for CVE-2026-66066 (Active Storage / libvips) exposure. Read-only.
+argument-hint: "[app-path...]"
 disable-model-invocation: true
 ---
 

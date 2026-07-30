@@ -17,14 +17,14 @@ The skill is a configuration auditor and remediation aid. It contains no exploit
 
 libvips reads and writes formats through operations, some of which it marks as _unfuzzed_ — unsafe for untrusted content. Active Storage did not disable them, so an attacker who can upload a crafted file can reach them.
 
-A repository is exposed only when **all four** conditions hold:
+An application is exposed only when **all four** conditions hold:
 
 1. `activestorage` is in an affected version range
 2. Active Storage is in use
 3. `config.active_storage.variant_processor` resolves to `:vips`
 4. The application accepts uploads from untrusted users
 
-Condition 3 is the discriminating one. The affected range `< 7.2.3.2` includes every Rails 6.x release, but 6.x defaults to `:mini_magick`, so 6.x is exposed only under a non-default configuration, and releases before 6.0 have no `variant_processor` setting at all. Rails 7.0 and later default to `:vips` via `config.load_defaults 7.0`, which is why the common configuration is exposed.
+Condition 3 is the discriminating one. The affected range `< 7.2.3.2` includes every Rails 6.x release, but 6.x defaults to `:mini_magick`, so 6.x is exposed only under a non-default configuration, and releases before 6.0 have no `variant_processor` setting at all. Rails 7.0 and later default to `:vips` via `config.load_defaults 7.0`, which is why the common configuration is exposed. Rails 8.1 also accepts `:disabled`, which makes condition 3 false.
 
 ## Installation
 
@@ -48,15 +48,15 @@ git clone https://github.com/paveg/rails-activestorage-vips-audit.git
 cp -r rails-activestorage-vips-audit/skills/rails-activestorage-vips-audit ~/.claude/skills/
 ```
 
-`~/.agents/skills/` works as a cross-runtime location for Codex, Copilot CLI, and Gemini CLI. Nothing in the skill depends on where it is installed — there are no absolute paths, and `collect-evidence.sh` resolves everything relative to the repository it is pointed at.
+`~/.agents/skills/` works as a cross-runtime location for Codex, Copilot CLI, and Gemini CLI. Nothing in the skill depends on where it is installed — there are no absolute paths, and `collect-evidence.sh` resolves everything relative to the application root it is pointed at.
 
 ## Usage
 
-The skill has two modes, and both accept multiple repository paths.
+The skill has two modes, and both accept multiple application paths.
 
 ```
-report <repo>...   # read-only audit, one verdict per repository
-fix <repo>...      # applies remediation on a branch; never commits or pushes unprompted
+report <app>...   # read-only audit, one verdict per application
+fix <app>...      # applies remediation on a branch; never commits or pushes unprompted
 ```
 
 Installed as a plugin, each mode is also a command, so the mode does not have to be typed as an argument:
@@ -68,7 +68,7 @@ Installed as a plugin, each mode is also a command, so the mode does not have to
 
 The commands are entry points for you, not for the agent: they are marked so that Claude never fires them on its own. Claude still invokes the skill itself when a request matches it, which is why `fix` cannot start without a human asking for it.
 
-`report` is the default. `fix` requires a `report` verdict for the same repository first, because the correct remediation depends on it — Rails 6.x, 7.0.x, and 7.1.x have no same-series patch, so there `fix` applies the interim mitigation and reports that a framework upgrade is required rather than attempting one.
+`report` is the default. `fix` requires a `report` verdict for the same application first, because the correct remediation depends on it — Rails 6.x, 7.0.x, and 7.1.x have no same-series patch, so there `fix` applies the interim mitigation and reports that a framework upgrade is required rather than attempting one.
 
 Evidence collection can also be run on its own:
 
@@ -76,11 +76,11 @@ Evidence collection can also be run on its own:
 skills/rails-activestorage-vips-audit/scripts/collect-evidence.sh path/to/app another/app
 ```
 
-The script gathers facts and deliberately contains no verdict logic.
+The script gathers facts and deliberately contains no verdict logic. Pass an application root, not an undifferentiated monorepo root. For a monorepo, pass each deployable Rails directory with its own `Gemfile.lock` and `config/application.rb` as a separate argument. The collector excludes those nested application roots from a parent's evidence stream, while retaining nested lockfile roots that may be mounted engines or path dependencies.
 
 ## What it will not tell you
 
-- **The runtime libvips version.** It is not knowable from a repository, and it matters: below libvips 8.13 the unsafe operations cannot be disabled at all. On an unpatched application that means no mitigation can work; on a patched one it means Active Storage raises during boot rather than running unsecured, so an unchecked upgrade fails the deploy instead of leaving a silent hole. Verify with `vips --version` where the application runs. Because of this, a clean verdict on an application that uses `:vips` is always reported as conditional rather than as safe.
+- **The runtime libvips version.** It is not knowable conclusively from a repository, and it matters: below libvips 8.13 the unsafe operations cannot be disabled at all. On an unpatched application that means no mitigation can work; on a patched one it means Active Storage raises during boot rather than running unsecured, so an unchecked upgrade fails the deploy instead of leaving a silent hole. Verify with `vips --version` where the application runs. Reports keep this under runtime readiness and remediation rather than making the exposure verdict conditional.
 - **Whether a mitigation is live.** `VIPS_BLOCK_UNTRUSTED` in a Dockerfile does not prove the deployed environment sets it. The skill caps such findings at "interim mitigation present, upgrade still required" and never lets one produce a clean verdict.
 
 ## Remediation summary
@@ -101,7 +101,7 @@ A WAF is not a mitigation here. Whether it can see the payload depends on the st
 ## Disclaimer
 
 - Use this skill only on repositories you own or are explicitly authorized to audit.
-- Verdicts are best-effort static analysis. A NOT AFFECTED verdict is not proof of non-exposure: evidence outside the repository (runtime libvips, deployed environment variables, code in other services) is invisible to a repository audit, which is why clean verdicts on `:vips` applications are always reported as conditional.
+- Verdicts are best-effort static analysis. A NOT AFFECTED verdict is not proof of non-exposure: deployed environment variables and code in other services are invisible to a repository audit. Runtime libvips is reported separately because it affects mitigation and deployment readiness, not whether the repository meets the exposure conditions.
 - The skill contains no exploit code and will not reconstruct the attack chain, regardless of how a request is framed.
 - Provided under the [MIT License](LICENSE), without warranty of any kind. Acting on a report — upgrades, mitigations, secret rotation — remains the operator's responsibility.
 
